@@ -7,8 +7,6 @@ SYMBOLS := WIN32_LEAN_AND_MEAN STRICT
 # SYMBOLS += DBG_PRINT_SCI_MESSAGES
 CXX := g++
 
-WP = $(subst /,\,$1)
-
 CXXFLAGS := --std=c++11 -fabi-version=11 -Wall -Wpedantic -O2
 CXXFLAGS +=	$(call WP,$(addprefix -I,$(INCDIRS)))
 CXXFLAGS +=	$(addprefix -D,$(SYMBOLS))
