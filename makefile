@@ -8,7 +8,7 @@ SYMBOLS := WIN32_LEAN_AND_MEAN STRICT
 CXX := g++
 
 CXXFLAGS := --std=c++11 -fabi-version=11 -Wall -Wpedantic -O2
-CXXFLAGS +=	$(call WP,$(addprefix -I,$(INCDIRS)))
+CXXFLAGS +=	$(addprefix -I,$(INCDIRS))
 CXXFLAGS +=	$(addprefix -D,$(SYMBOLS))
 
 LDFLAGS := -Wl,-subsystem=$(TARGET)
@@ -16,6 +16,7 @@ LDLIBS := $(addprefix -l,$(WINLIBS))
 
 NAME := skeletype
 
+WP = $(subst /,\,$1)
 MKDIR = IF NOT EXIST $(call WP,$1) mkdir $(call WP,$1)
 COPY = copy $(call WP,$1) $(call WP,$2)
 DEL = IF EXIST $(call WP,$1) del $(call WP,$1) 2>NUL
