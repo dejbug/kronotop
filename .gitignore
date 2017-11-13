@@ -1,0 +1,8 @@
+/old/
+/extern/
+/build/
+*.exe
+*.dll
+*.o
+*.tags
+*.tags_sorted_by_file
