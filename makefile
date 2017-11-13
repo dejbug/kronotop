@@ -2,13 +2,15 @@ SHELL := cmd.exe
 TARGET ?= console
 WINLIBS := gdi32
 # WINLIBS += gdiplus comctl32 shlwapi ntdll
-INCDIRS := ./src ./extern/Scintilla/include
+INCDIRS := src extern/Scintilla/include
 SYMBOLS := WIN32_LEAN_AND_MEAN STRICT
 # SYMBOLS += DBG_PRINT_SCI_MESSAGES
 CXX := g++
 
+WP = $(subst /,\,$1)
+
 CXXFLAGS := --std=c++11 -fabi-version=11 -Wall -Wpedantic -O2
-CXXFLAGS +=	$(addprefix -I,$(INCDIRS))
+CXXFLAGS +=	$(call WP,$(addprefix -I,$(INCDIRS)))
 CXXFLAGS +=	$(addprefix -D,$(SYMBOLS))
 
 LDFLAGS := -Wl,-subsystem=$(TARGET)
@@ -16,7 +18,6 @@ LDLIBS := $(addprefix -l,$(WINLIBS))
 
 NAME := skeletype
 
-WP = $(subst /,\,$1)
 MKDIR = IF NOT EXIST $(call WP,$1) mkdir $(call WP,$1)
 COPY = copy $(call WP,$1) $(call WP,$2)
 DEL = IF EXIST $(call WP,$1) del $(call WP,$1) 2>NUL
