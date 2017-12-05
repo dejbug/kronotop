@@ -25,56 +25,47 @@ DELTREE = IF EXIST $(call WP,$1) rmdir /S /Q $(call WP,$1)
 # -- since make doesn't support wildcards on subdirs.
 # listdir = $(shell dir /S /B $(1)*$(2))
 
-deploy/$(NAME).exe: build_dir_tree
+deploy/$(NAME).exe: | build_dir_tree
 deploy/$(NAME).exe: build/resource.o
 deploy/$(NAME).exe: build/WinMain.o
 deploy/$(NAME).exe: build/MainFrameProc.o
 deploy/$(NAME).exe: build/App.o
 deploy/$(NAME).exe: build/dejlib2.a
 deploy/$(NAME).exe: build/dejlib3.a
+deploy/$(NAME).exe: build/dejlib5.a
 # deploy/$(NAME).exe: deploy/Scintilla.dll
 deploy/$(NAME).exe: deploy/SciLexer.dll
 deploy/$(NAME).exe:
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(filter %.o %.a,$^) $(LDLIBS)
+	$(CXX) -o $@ $(CXXFLAGS) $(LDFLAGS) $(filter %.o %.a,$^) $(LDLIBS)
 
 .PHONY: build_dir_tree
-build_dir_tree:
-	$(call MKDIR,build/dejlib2)
-	$(call MKDIR,build/dejlib3)
-	$(call MKDIR,deploy)
+build_dir_tree : build deploy build/dejlib2 build/dejlib3 build/dejlib5
 
-deploy/Scintilla.dll:
+build : ; $(call MKDIR,build)
+deploy : ; $(call MKDIR,deploy)
+build/dejlib2 : build ; $(call MKDIR,build/dejlib2)
+build/dejlib3 : build ; $(call MKDIR,build/dejlib3)
+build/dejlib5 : build ; $(call MKDIR,build/dejlib5)
+
+deploy/Scintilla.dll :
 	$(call COPY,extern/Scintilla/bin/Scintilla.dll,deploy/.)
-deploy/SciLexer.dll:
+deploy/SciLexer.dll :
 	$(call COPY,extern/Scintilla/bin/SciLexer.dll,deploy/.)
 
-build/dejlib2.a: build/dejlib2/dejlib.o
-build/dejlib2.a: ; ar r $@ $(filter %.o,$^)
+DEJLIB2_SOURCES := $(wildcard src/dejlib2/*.cpp)
+DEJLIB2_OBJECTS := $(DEJLIB2_SOURCES:src/dejlib2/%.cpp=build/dejlib2/%.o)
+build/dejlib2/%.o : src/dejlib2/%.cpp ; $(CXX) -o $@ -c $< $(CXXFLAGS)
+build/dejlib2.a : $(DEJLIB2_OBJECTS) | build/dejlib2 ; ar r $@ $^
 
-build/dejlib2/dejlib.o: src/dejlib2/dejlib.cpp
-build/dejlib2/dejlib.o: src/dejlib2/*.h
+DEJLIB3_SOURCES := $(wildcard src/dejlib3/*.cpp)
+DEJLIB3_OBJECTS := $(DEJLIB3_SOURCES:src/dejlib3/%.cpp=build/dejlib3/%.o)
+build/dejlib3/%.o : src/dejlib3/%.cpp ; $(CXX) -o $@ -c $< $(CXXFLAGS)
+build/dejlib3.a : $(DEJLIB3_OBJECTS) | build/dejlib3 ; ar r $@ $^
 
-build/dejlib2/%.o: ; $(CXX) $(CXXFLAGS) -o $@ -c $(filter %.cpp,$^)
-
-build/dejlib3.a: build/dejlib3/win.o
-build/dejlib3.a: build/dejlib3/sci.o
-build/dejlib3.a: build/dejlib3/dbg.o
-build/dejlib3.a: build/dejlib3/scinti.o
-build/dejlib3.a: ; ar r $@ $(filter %.o,$^)
-
-build/dejlib3/win.o: src/dejlib3/win.cpp
-build/dejlib3/win.o: src/dejlib3/win.h
-build/dejlib3/sci.o: src/dejlib3/sci.cpp
-build/dejlib3/sci.o: src/dejlib3/sci.h
-build/dejlib3/dbg.o: src/dejlib3/dbg.cpp
-build/dejlib3/dbg.o: src/dejlib3/dbg.h
-build/dejlib3/scinti.o: src/dejlib3/scinti.cpp
-build/dejlib3/scinti.o: src/dejlib3/scinti.h
-
-build/dejlib3/sci.o: src/dejlib3/dbg.h
-src/dejlib3/scinti.o: src/dejlib3/dbg.h
-
-build/dejlib3/%.o: ; $(CXX) $(CXXFLAGS) -o $@ -c $(filter %.cpp,$^)
+DEJLIB5_SOURCES := $(wildcard src/dejlib5/*.cpp)
+DEJLIB5_OBJECTS := $(DEJLIB5_SOURCES:src/dejlib5/%.cpp=build/dejlib5/%.o)
+build/dejlib5/%.o : src/dejlib5/%.cpp ; $(CXX) -o $@ -c $< $(CXXFLAGS)
+build/dejlib5.a : $(DEJLIB5_OBJECTS) | build/dejlib5 ; ar r $@ $^
 
 build/resource.o: src/main/main.rc ; windres $< $@
 
@@ -102,6 +93,7 @@ clean:
 	$(call DEL,build/*.o)
 	$(call DELTREE,build/dejlib2)
 	$(call DELTREE,build/dejlib3)
+	$(call DELTREE,build/dejlib5)
 	$(call DELTREE,"deploy")
 
 .PHONY: reset

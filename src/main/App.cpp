@@ -9,6 +9,8 @@
 // #include <SciLexer.h>
 
 #include <dejlib3/dbg.h>
+#include <dejlib3/sci.h>
+#include <dejlib5/SciSelectionDragDisabler.h>
 
 using Sci = dejlib3::sci::Sci;
 
@@ -53,6 +55,8 @@ void App::layout_child_controls()
 LRESULT CALLBACK App::EditorProc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
 	static bool unpainted_resize = true;
+	static bool disable_selection_drag = true;
+	static SciSelectionDragDisabler sci_selection_drag_disabler(h, disable_selection_drag);
 
 	auto sci = Sci::from_handle(h);
 
@@ -100,6 +104,21 @@ LRESULT CALLBACK App::EditorProc(HWND h, UINT m, WPARAM w, LPARAM l)
 		case WM_RBUTTONDOWN:
 		{
 			return 0;
+		}
+
+		case WM_LBUTTONDOWN:
+		{
+			int const x = LOWORD(l);
+			int const y = HIWORD(l);
+			sci_selection_drag_disabler.on_down(x, y);
+			break;
+		}
+
+		case WM_LBUTTONDBLCLK:
+		{
+			if (!sci_selection_drag_disabler.on_ddown())
+				return 0;
+			break;
 		}
 
 		DISABLE_SCI(SCI_SETWRAPMODE)
