@@ -1,106 +1,120 @@
-SHELL := cmd.exe
-TARGET ?= console
-WINLIBS := gdi32
-# WINLIBS += gdiplus comctl32 shlwapi ntdll
+define COMPILE
+$(CXX) -o $1 -c $(filter %.cpp,$2) $(CXXFLAGS)
+endef
+
+define COPY_FILE
+$(shell python -c "import shutil; shutil.copy('$1','$2')")
+endef
+
+define DISTINCT
+$(sort $1)
+endef
+
+define GEN_PREREQ
+$(CXX) -MF $1 -MM $2 -MT "$(subst .d,.o,$1) $1" $(CXXFLAGS)
+endef
+
+define HAS_GOAL
+$(findstring $1,$(MAKECMDGOALS))
+endef
+
+define HAS_NON_BUILD_GOAL
+$(or $(call HAS_GOAL,clean),$(call HAS_GOAL,reset))
+endef
+
+define LINK
+$(CXX) -o $1 $(filter %.o %.a,$2) $(CXXFLAGS) $(LDFLAGS) $(LDLIBS)
+endef
+
+define LIST_DIR
+$(call TO_LIN_PATH,$(shell python -c "import os.path,itertools; it = os.walk('$1'); it = (tuple(os.path.join(t,n) for n in nn) for t,dd,nn in it); it = itertools.chain(*it); print ' '.join(it)"))
+endef
+
+define MAKE_DIR
+$(shell python -c "import os.path; os.path.exists('$1') or os.makedirs('$1')")
+endef
+
+define REMOVE_TREE
+$(shell python -c "import shutil; shutil.rmtree('$1', True)")
+endef
+
+define STRIP_PATH
+$(call TO_LIN_PATH,$(shell python -c "print '$1'.strip(' /\\')"))
+endef
+
+define TO_ABS_PATH
+$(call TO_LIN_PATH,$(shell python -c "import os.path; print os.path.abspath('$1')"))
+endef
+
+define TO_LIN_PATH
+$(subst \,/,$1)
+endef
+
+define TO_WIN_PATH
+$(subst /,\,$1)
+endef
+
+PRECISE := 1
+DEBUG := 1
+
+NAME := kronotope
+TARGET := console
+SOURCE_ROOT := src
+
 INCDIRS := src extern/Scintilla/include
 SYMBOLS := WIN32_LEAN_AND_MEAN STRICT
-# SYMBOLS += DBG_PRINT_SCI_MESSAGES
-CXX := g++
+WINLIBS := gdi32
 
-CXXFLAGS := --std=c++11 -fabi-version=11 -Wall -Wpedantic -O2
+CXXFLAGS := --std=c++11 -fabi-version=11 -Wall -Wpedantic
 CXXFLAGS +=	$(addprefix -I,$(INCDIRS))
 CXXFLAGS +=	$(addprefix -D,$(SYMBOLS))
 
-LDFLAGS := -Wl,-subsystem=$(TARGET)
+LDFLAGS :=
+ifeq ($(TARGET),windows)
+LDFLAGS += -Wl,--subsystem=windows
+DEBUG := 0
+else
+LDFLAGS += -Wl,--subsystem=console
+endif
+
+ifneq ($(DEBUG),0)
+CXXFLAGS += -g -Og
+else
+CXXFLAGS += -O3 -DNDEBUG
+endif
+
 LDLIBS := $(addprefix -l,$(WINLIBS))
 
-NAME := skeletype
+SOURCES := $(call LIST_DIR,$(SOURCE_ROOT))
+SOURCES := $(filter %.cpp,$(SOURCES))
+PREREQS := $(SOURCES:src/%.cpp=build/%.d)
+OBJECTS := $(SOURCES:src/%.cpp=build/%.o)
+SUBDIRS := $(call DISTINCT,$(dir $(OBJECTS)))/
 
-WP = $(subst /,\,$1)
-MKDIR = IF NOT EXIST $(call WP,$1) mkdir $(call WP,$1)
-COPY = copy $(call WP,$1) $(call WP,$2)
-DEL = IF EXIST $(call WP,$1) del $(call WP,$1) 2>NUL
-DELTREE = IF EXIST $(call WP,$1) rmdir /S /Q $(call WP,$1)
+deploy/$(NAME).exe : deploy/SciLexer.dll
+deploy/$(NAME).exe : build/resource.o
+deploy/$(NAME).exe : $(OBJECTS) | deploy/ ; $(call LINK,$@,$^)
 
-# -- since make doesn't support wildcards on subdirs.
-# listdir = $(shell dir /S /B $(1)*$(2))
+deploy/ build/ : ; $(call MAKE_DIR,$(call STRIP_PATH,$@))
+$(SUBDIRS) : ; $(call MAKE_DIR,$@)
 
-deploy/$(NAME).exe: | build_dir_tree
-deploy/$(NAME).exe: build/resource.o
-deploy/$(NAME).exe: build/WinMain.o
-deploy/$(NAME).exe: build/MainFrameProc.o
-deploy/$(NAME).exe: build/App.o
-deploy/$(NAME).exe: build/dejlib2.a
-deploy/$(NAME).exe: build/dejlib3.a
-deploy/$(NAME).exe: build/dejlib5.a
-# deploy/$(NAME).exe: deploy/Scintilla.dll
-deploy/$(NAME).exe: deploy/SciLexer.dll
-deploy/$(NAME).exe:
-	$(CXX) -o $@ $(CXXFLAGS) $(LDFLAGS) $(filter %.o %.a,$^) $(LDLIBS)
+build/%.o : src/%.cpp | $(SUBDIRS) ; $(call COMPILE,$@,$^)
+build/%.d : src/%.cpp | $(SUBDIRS) ; $(call GEN_PREREQ,$@,$<)
 
-.PHONY: build_dir_tree
-build_dir_tree : build deploy build/dejlib2 build/dejlib3 build/dejlib5
+build/resource.o: src/main/main.rc | $(SUBDIRS) ; windres $< $@
 
-build : ; $(call MKDIR,build)
-deploy : ; $(call MKDIR,deploy)
-build/dejlib2 : build ; $(call MKDIR,build/dejlib2)
-build/dejlib3 : build ; $(call MKDIR,build/dejlib3)
-build/dejlib5 : build ; $(call MKDIR,build/dejlib5)
+deploy/SciLexer.dll : | $(SUBDIRS) ; $(call COPY_FILE,extern/Scintilla/bin/SciLexer.dll,deploy/)
 
-deploy/Scintilla.dll :
-	$(call COPY,extern/Scintilla/bin/Scintilla.dll,deploy/.)
-deploy/SciLexer.dll :
-	$(call COPY,extern/Scintilla/bin/SciLexer.dll,deploy/.)
+.PHONY : clean reset run
 
-DEJLIB2_SOURCES := $(wildcard src/dejlib2/*.cpp)
-DEJLIB2_OBJECTS := $(DEJLIB2_SOURCES:src/dejlib2/%.cpp=build/dejlib2/%.o)
-build/dejlib2/%.o : src/dejlib2/%.cpp ; $(CXX) -o $@ -c $< $(CXXFLAGS)
-build/dejlib2.a : $(DEJLIB2_OBJECTS) | build/dejlib2 ; ar r $@ $^
+clean : ; $(call REMOVE_TREE,build/)
+reset : | clean ; $(call REMOVE_TREE,deploy/)
+run : deploy/$(NAME).exe ; $<
 
-DEJLIB3_SOURCES := $(wildcard src/dejlib3/*.cpp)
-DEJLIB3_OBJECTS := $(DEJLIB3_SOURCES:src/dejlib3/%.cpp=build/dejlib3/%.o)
-build/dejlib3/%.o : src/dejlib3/%.cpp ; $(CXX) -o $@ -c $< $(CXXFLAGS)
-build/dejlib3.a : $(DEJLIB3_OBJECTS) | build/dejlib3 ; ar r $@ $^
+ifneq ($(PRECISE),0)
+ifeq (,$(call HAS_NON_BUILD_GOAL))
+include $(PREREQS)
+endif
+endif
 
-DEJLIB5_SOURCES := $(wildcard src/dejlib5/*.cpp)
-DEJLIB5_OBJECTS := $(DEJLIB5_SOURCES:src/dejlib5/%.cpp=build/dejlib5/%.o)
-build/dejlib5/%.o : src/dejlib5/%.cpp ; $(CXX) -o $@ -c $< $(CXXFLAGS)
-build/dejlib5.a : $(DEJLIB5_OBJECTS) | build/dejlib5 ; ar r $@ $^
-
-build/resource.o: src/main/main.rc ; windres $< $@
-
-build/WinMain.o: src/main/WinMain.cpp
-build/WinMain.o: build/dejlib2.a
-build/WinMain.o: build/MainFrameProc.o
-
-build/MainFrameProc.o: build/dejlib2.a
-build/MainFrameProc.o: build/dejlib3.a
-build/MainFrameProc.o: build/App.o
-build/MainFrameProc.o: src/main/MainFrameProc.cpp
-build/MainFrameProc.o: src/snippets/*.h
-
-build/App.o: src/main/App.cpp
-build/App.o: build/dejlib3.a
-
-src/main/App.cpp: src/main/App.h
-
-build/%.o: ; $(CXX) $(CXXFLAGS) -o $@ -c $(filter %.cpp,$^)
-# build/dejlib2/%.o: ; $(CXX) $(filter %.cpp,$^) -o $@ -c $(CXXFLAGS)
-# build/dejlib3/%.o: ; $(CXX) $(filter %.cpp,$^) -o $@ -c $(CXXFLAGS)
-
-.PHONY: clean
-clean:
-	$(call DEL,build/*.o)
-	$(call DELTREE,build/dejlib2)
-	$(call DELTREE,build/dejlib3)
-	$(call DELTREE,build/dejlib5)
-	$(call DELTREE,"deploy")
-
-.PHONY: reset
-reset:
-	$(call DELTREE,"build")
-	$(call DELTREE,"deploy")
-
-.PHONY: run
-run: deploy/$(NAME).exe
-	$<
+.DELETE_ON_ERROR :
