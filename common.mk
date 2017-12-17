@@ -39,7 +39,7 @@ $(shell python -c "import shutil; shutil.rmtree('$1', True)")
 endef
 
 define STRIP_PATH
-$(call TO_LIN_PATH,$(shell python -c "print '$1'.strip(' /\\')"))
+$(call TO_LIN_PATH,$(shell python -c "print '$1'.strip(r' \/')"))
 endef
 
 define TO_ABS_PATH
