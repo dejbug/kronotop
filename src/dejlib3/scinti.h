@@ -1,8 +1,7 @@
-#ifndef SCINTI_HPP
-#define SCINTI_HPP
-
+#pragma once
 #include <windows.h>
-#include <string>
+
+#include <ostream>
 #include <vector>
 
 #include <dejlib3/win.h>
@@ -21,6 +20,7 @@ struct Scintilla
 	LRESULT smsg(UINT m, WPARAM w=0, LPARAM l=0) const;
 
 	long get_row_count() const;
+	long get_column_count(long row) const;
 	void get_column_counts(std::vector<long> & vv) const;
 };
 
@@ -32,7 +32,7 @@ struct RowInfo
 	long const index = 0;
 
 	RowInfo(Scintilla const & sci, long row);
-	std::string to_string() const;
+	// std::string to_string() const;
 };
 
 struct RowInfo2 : public RowInfo
@@ -42,10 +42,11 @@ struct RowInfo2 : public RowInfo
 	bool has_wrap_flag_end = false;
 
 	RowInfo2(Scintilla const & sci, long row);
-	std::string to_string() const;
+	// std::string to_string() const;
 };
 
 } // namespace scinti
 } // namespace dejlib3
 
-#endif // SCINTI_HPP
+std::ostream & operator<<(std::ostream &, dejlib3::scinti::RowInfo const &);
+std::ostream & operator<<(std::ostream &, dejlib3::scinti::RowInfo2 const &);

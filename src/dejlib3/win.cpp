@@ -75,6 +75,10 @@ void get_client_size(HWND h, SIZE & size)
 	size.cy = r.bottom - r.top;
 }
 
+Dc::Dc(HDC handle) : handle(handle)
+{
+}
+
 Dc Dc::for_client(HWND h)
 {
 	Dc dc;

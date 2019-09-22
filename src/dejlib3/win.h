@@ -30,7 +30,9 @@ void get_client_size(HWND, SIZE &);
 
 struct Dc
 {
-	HDC handle = NULL;
+	HDC handle = nullptr;
+	
+	Dc(HDC=nullptr);
 
 	static Dc for_client(HWND);
 

@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <string>
 #include <sstream>
+#include <iostream>
 #include <Scintilla.h>
 
 dejlib3::scinti::Scintilla::Scintilla(HWND handle) : handle(handle)
@@ -35,20 +36,39 @@ long dejlib3::scinti::Scintilla::get_row_count() const
 	return row;
 }
 
+long dejlib3::scinti::Scintilla::get_column_count(long row) const
+{
+	long const row_height = smsg(SCI_TEXTHEIGHT, 0);
+
+	// dejlib3::scinti::RowInfo ri(*this, row);
+	// std::cout << row << " | " << ri << std::endl;
+
+	long const y = row * row_height;
+
+	long const start_pos = smsg(SCI_CHARPOSITIONFROMPOINT, 0, y);
+	long const start_col = smsg(SCI_GETCOLUMN, start_pos);
+	// std::cout << "getColumnCount(" << row << ") :  start_pos=" << start_pos << "  start_col=" << start_col << std::endl;
+
+	SIZE s; dejlib3::win::get_client_size(handle, s);
+	// std::cout << s.cx << ':' << s.cy << std::endl;
+
+	long const end_pos = smsg(SCI_CHARPOSITIONFROMPOINT, s.cx, y);
+	long const end_col = smsg(SCI_GETCOLUMN, end_pos);
+
+	return end_col - start_col;
+}
+
 void dejlib3::scinti::Scintilla::get_column_counts(std::vector<long> & vv) const
 {
 	SIZE s;
 	dejlib3::win::get_client_size(handle, s);
 
 	long const row_height = smsg(SCI_TEXTHEIGHT, 0);
-	// long const row_count = get_row_count();
 	long const row_count = smsg(SCI_LINESONSCREEN);
 
-	for (long row=0; row < row_count; ++row)
+	for (long row=0, y=0; row < row_count; ++row, y += row_height)
 	{
-		RowInfo ri(*this, row);
-
-		long const y = row * row_height;
+		// RowInfo ri(*this, row);
 
 		long const start_pos = smsg(SCI_CHARPOSITIONFROMPOINT, 0, y);
 		long const start_col = smsg(SCI_GETCOLUMN, start_pos);
@@ -69,13 +89,6 @@ dejlib3::scinti::RowInfo::RowInfo(dejlib3::scinti::Scintilla const & sci, long r
 	index(row - sci.smsg(SCI_VISIBLEFROMDOCLINE, line))
 {}
 
-std::string dejlib3::scinti::RowInfo::to_string() const
-{
-	std::stringstream ss;
-	ss << "RowInfo(row=" << row << ", line=" << line << ", rows=" << rows << ", index=" << index << ")";
-	return ss.str();
-}
-
 dejlib3::scinti::RowInfo2::RowInfo2(dejlib3::scinti::Scintilla const & sci, long row) :
 	dejlib3::scinti::RowInfo(sci, row),
 	is_last_index(index == rows - 1),
@@ -83,9 +96,12 @@ dejlib3::scinti::RowInfo2::RowInfo2(dejlib3::scinti::Scintilla const & sci, long
 	has_wrap_flag_end(rows > 1 && index < rows - 1 ? sci.smsg(SCI_GETWRAPVISUALFLAGS) == SC_WRAPVISUALFLAG_END : false)
 {}
 
-std::string dejlib3::scinti::RowInfo2::to_string() const
-{
-	std::stringstream ss;
-	ss << "RowInfo2(row=" << row << ", line=" << line << ", rows=" << rows << ", index=" << index << ", is_last_index=" << is_last_index << ", has_wrap_flag_start=" << has_wrap_flag_start << ", has_wrap_flag_end=" << has_wrap_flag_end << ")";
-	return ss.str();
+std::ostream & operator<<(std::ostream & os, dejlib3::scinti::RowInfo const & ri) {
+	os << "RowInfo(row=" << ri.row << ", line=" << ri.line << ", rows=" << ri.rows << ", index=" << ri.index << ")";	
+	return os;
+}
+
+std::ostream & operator<<(std::ostream & os, dejlib3::scinti::RowInfo2 const & ri) {
+	os << "RowInfo2(row=" << ri.row << ", line=" << ri.line << ", rows=" << ri.rows << ", index=" << ri.index << ", is_last_index=" << ri.is_last_index << ", has_wrap_flag_start=" << ri.has_wrap_flag_start << ", has_wrap_flag_end=" << ri.has_wrap_flag_end << ")";
+	return os;
 }

@@ -97,13 +97,58 @@ void wm_command(HWND h, int id, HWND ctrl, UINT code)
 	}
 }
 
+#include <iostream>
+
+static void draw_col_separator(HDC hdc, long x)
+{
+	long const th = app.sci.smsg(SCI_TEXTHEIGHT);
+	dejlib3::win::draw_line(hdc, {x, 0}, {x, th});
+}
+
+static void draw_row_separator(HDC hdc)
+{
+	// long const th = app.sci.smsg(SCI_TEXTHEIGHT);
+
+	SIZE s;
+	dejlib3::win::get_client_size(app.hwnd_editor, s);
+	// dejlib3::win::draw_line(hdc, {0, th-1}, {s.cx, th-1});
+	dejlib3::win::draw_line(hdc, {0, 1}, {s.cx, 1});
+}
+
 void on_sci_notify(HWND h, SCNotification * info)
 {
 	// std::string s;
 	// app.sci.print_notification_label(s, info->nmhdr.code);
 	// printf("[%d] %s\n", info->nmhdr.code, s.c_str());
 
-	if (SCN_PAINTED == info->nmhdr.code)
+	if (2033 == info->nmhdr.code)
+	{
+		struct Notification {
+			NMHDR hdr;
+			HDC hdc;
+			int line;
+			int row_index;
+		};
+
+		auto const notification = (Notification *)info;
+
+		long const fvl = app.sci.smsg(SCI_GETFIRSTVISIBLELINE);
+
+		auto dc = dejlib3::win::Dc(notification->hdc);
+		dc.set_pen_color(RGB(133, 166, 250));
+
+
+		long const x = app.sci.get_row_width(notification->line - fvl);
+		draw_col_separator(dc.handle, x);
+
+
+		if (notification->line - fvl > 0 && 0 == notification->row_index) {
+			dc.set_pen_color(app.sci.smsg(SCI_STYLEGETFORE));
+			draw_row_separator(dc.handle);
+		}
+	}
+
+	else if (false && SCN_PAINTED == info->nmhdr.code)
 	{
 		std::vector<long> yy;
 		app.sci.get_last_wrapped_rows_y(yy);
@@ -114,8 +159,6 @@ void on_sci_notify(HWND h, SCNotification * info)
 		app.sci.get_row_widths(xx);
 		app.sci.draw_col_separators(xx);
 		// DUMP_VEC("ld", xx);
-
-		// app.sci.draw_cursor();
 	}
 }
 

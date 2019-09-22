@@ -5,7 +5,6 @@
 #include <Scintilla.h>
 #include <SciLexer.h>
 
-#include <sstream>
 #include <algorithm>
 
 #include "scinti.h"
@@ -46,7 +45,7 @@ HWND Sci::create(HWND parent, UINT id)
 	return handle;
 }
 
-void Sci::set_defaults()
+void Sci::set_defaults() const
 {
 	smsg(SCI_CLEARALL);
 	smsg(EM_EMPTYUNDOBUFFER);
@@ -57,7 +56,11 @@ void Sci::set_defaults()
 	smsg(SCI_SETBUFFEREDDRAW, 1);
 	smsg(SCI_SETPHASESDRAW, SC_PHASES_MULTIPLE);
 	// smsg(SCI_SETTECHNOLOGY, SC_TECHNOLOGY_DEFAULT);
-	// smsg(SCI_SETFONTQUALITY, SC_EFF_QUALITY_ANTIALIASED);
+	smsg(SCI_SETFONTQUALITY, SC_EFF_QUALITY_ANTIALIASED);
+
+	// smsg(SCI_SETLAYOUTCACHE, SC_CACHE_NONE);
+	// smsg(SCI_SETLAYOUTCACHE, SC_CACHE_DOCUMENT);
+	smsg(SCI_SETLAYOUTCACHE, SC_CACHE_PAGE);
 
 	// smsg(SCI_SETLEXER, SCLEX_CONTAINER);
 	smsg(SCI_SETLEXER, SCLEX_NULL);
@@ -71,8 +74,6 @@ void Sci::set_defaults()
 	smsg(SCI_SETWRAPVISUALFLAGS, SC_WRAPVISUALFLAG_END);
 	smsg(SCI_SETWRAPVISUALFLAGSLOCATION, SC_WRAPVISUALFLAGLOC_DEFAULT);
 	smsg(SCI_SETWRAPSTARTINDENT, 0);
-	// smsg(SCI_SETLAYOUTCACHE, SC_CACHE_NONE);
-	smsg(SCI_SETLAYOUTCACHE, SC_CACHE_DOCUMENT);
 
 	smsg(SCI_SETMARGINWIDTHN, 1, 0);
 	// smsg(SCI_SETVSCROLLBAR, false);
@@ -96,41 +97,51 @@ void Sci::set_defaults()
 	smsg(SCI_SETMARGINOPTIONS, SC_MARGINOPTION_SUBLINESELECT);
 }
 
-void Sci::show()
+void Sci::show() const
 {
 	UpdateWindow(handle);
 	ShowWindow(handle, SW_SHOW);
 }
 
-LRESULT Sci::smsg(UINT m, WPARAM w, LPARAM l)
+LRESULT Sci::smsg(UINT m, WPARAM w, LPARAM l) const
 {
 	return SendMessage(handle, m, w, l);
 }
 
-WNDPROC Sci::subclass(WNDPROC proc)
+WNDPROC Sci::subclass(WNDPROC proc) const
 {
 	return (WNDPROC)SetWindowLong(handle, GWL_WNDPROC, (LONG)proc);
 }
 
-LRESULT Sci::calldef(UINT m, WPARAM w, LPARAM l)
+LRESULT Sci::calldef(UINT m, WPARAM w, LPARAM l) const
 {
 	return CallWindowProc(defproc, handle, m, w, l);
 }
 
-void Sci::get_row_widths(std::vector<long> & yy)
+long Sci::get_row_width(long row) const
 {
 	long const cw = smsg(SCI_TEXTWIDTH, STYLE_DEFAULT, (LPARAM) "X");
 	long const extra = 3;
 
-	scinti::Scintilla(handle).get_column_counts(yy);
-	// DUMP_VEC("%ld", yy);
+	long const cc = dejlib3::scinti::Scintilla(handle).get_column_count(row);
 
-	std::for_each(yy.begin(), yy.end(), [&](long & y){
-		y = y * cw + (y > 0 ? extra : -1);
+	return cc * cw + (cc > 0 ? extra : -1);
+}
+
+void Sci::get_row_widths(std::vector<long> & ww) const
+{
+	long const cw = smsg(SCI_TEXTWIDTH, STYLE_DEFAULT, (LPARAM) "X");
+	long const extra = 3;
+
+	scinti::Scintilla(handle).get_column_counts(ww);
+	// DUMP_VEC("%ld", ww);
+
+	std::for_each(ww.begin(), ww.end(), [&](long & w){
+		w = w * cw + (w > 0 ? extra : -1);
 	});
 }
 
-void Sci::get_last_wrapped_rows_y(std::vector<long> & yy)
+void Sci::get_last_wrapped_rows_y(std::vector<long> & yy) const
 {
 	bool const all_lines = true;
 
@@ -157,24 +168,21 @@ void Sci::get_last_wrapped_rows_y(std::vector<long> & yy)
 	}
 }
 
-void Sci::draw_col_separators(std::vector<long> const & xx)
+void Sci::draw_col_separators(std::vector<long> const & xx) const
 {
 	COLORREF const f = RGB(133, 166, 250);
+	long const th = smsg(SCI_TEXTHEIGHT);
 
 	auto dc = dejlib3::win::Dc::for_client(handle);
 	dc.set_pen_color(f);
 
-	long const th = smsg(SCI_TEXTHEIGHT);
-
 	long y = 0;
 
 	for (size_t i=0; i<xx.size(); ++i, y += th)
-	{
 		dejlib3::win::draw_line(dc.handle, {xx[i], y}, {xx[i], y + th});
-	}
 }
 
-void Sci::clip_col_separators(std::vector<long> const & xx)
+void Sci::clip_col_separators(std::vector<long> const & xx) const
 {
 	long const th = smsg(SCI_TEXTHEIGHT);
 	long y = 0;
@@ -186,7 +194,7 @@ void Sci::clip_col_separators(std::vector<long> const & xx)
 	}
 }
 
-void Sci::draw_row_separators(std::vector<long> const & yy)
+void Sci::draw_row_separators(std::vector<long> const & yy) const
 {
 	COLORREF const f = smsg(SCI_STYLEGETFORE);
 
@@ -202,7 +210,7 @@ void Sci::draw_row_separators(std::vector<long> const & yy)
 	}
 }
 
-void Sci::clip_row_separators(std::vector<long> const & yy)
+void Sci::clip_row_separators(std::vector<long> const & yy) const
 {
 	SIZE s;
 	dejlib3::win::get_client_size(handle, s);
@@ -214,12 +222,12 @@ void Sci::clip_row_separators(std::vector<long> const & yy)
 	}
 }
 
-void get_row_positions(Sci & sci, std::vector<long> & vv)
+static void get_row_positions(Sci const & sci, std::vector<long> & vv)
 {
 	scinti::Scintilla(sci.handle).get_column_counts(vv);
 }
 
-long row_from_pos(Sci & sci, long pos)
+static long row_from_pos(Sci const & sci, long pos)
 {
 	std::vector<long> pp;
 	get_row_positions(sci, pp);
@@ -235,7 +243,7 @@ long row_from_pos(Sci & sci, long pos)
 	return 0;
 }
 
-long col_from_pos(Sci & sci, long pos)
+static long col_from_pos(Sci const & sci, long pos)
 {
 	std::vector<long> pp;
 	get_row_positions(sci, pp);
@@ -253,7 +261,7 @@ long col_from_pos(Sci & sci, long pos)
 	return 0;
 }
 
-void Sci::draw_cursor()
+void Sci::draw_cursor() const
 {
 	/// What we've got is the current cursor pos. The pos is
 	/// the index of the character besides which to draw the
@@ -290,7 +298,7 @@ void Sci::draw_cursor()
 	dejlib3::win::draw_line(dc.handle, {x, y}, {x, y+ch});
 }
 
-long Sci::get_line_char_count(int line, bool include_eol)
+long Sci::get_line_char_count(int line, bool include_eol) const
 {
 	if (!include_eol)
 	{
@@ -301,7 +309,7 @@ long Sci::get_line_char_count(int line, bool include_eol)
 	return smsg(SCI_LINELENGTH, line);
 }
 
-void Sci::print_notification_label(std::string & out, UINT code)
+void Sci::print_notification_label(std::string & out, UINT code) const
 {
 	switch(code)
 	{
@@ -338,7 +346,7 @@ void Sci::print_notification_label(std::string & out, UINT code)
 	}
 }
 
-row_info::row_info(Sci & sci, long row) : row(row)
+row_info::row_info(Sci const & sci, long row) : row(row)
 {
 	long const lc = sci.smsg(SCI_GETLINECOUNT);
 
@@ -351,12 +359,10 @@ row_info::row_info(Sci & sci, long row) : row(row)
 	last_row = first_row + rows - 1;
 }
 
-void row_info::print(std::string & out)
-{
-	std::ostringstream ss;
-	ss << "row: " << row << " | " << "rows: " << rows << " | " << "line: " << line << " | " << "first_row: " << first_row << " | " << "last_row: " << last_row;
-	ss.str().swap(out);
-}
-
 } // :: sci
 } // :: dejlib3
+
+std::ostream & operator<<(std::ostream & os, dejlib3::sci::row_info const & ri) {
+	os << "row: " << ri.row << " | " << "rows: " << ri.rows << " | " << "line: " << ri.line << " | " << "first_row: " << ri.first_row << " | " << "last_row: " << ri.last_row;
+	return os;
+}
